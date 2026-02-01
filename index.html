@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sahrazar — Kampagneværktøjer</title>
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700&family=Cinzel:wght@400;600;700&family=Lora:ital,wght@0,400;0,600;1,400&display=swap');
+
+:root {
+  --bg: #0d0a14;
+  --bg2: #1a1425;
+  --bg3: #251e33;
+  --gold: #d4a843;
+  --gold-light: #f0d68a;
+  --gold-dim: #8a6f2a;
+  --purple: #6b3fa0;
+  --purple-light: #9b6fd0;
+  --sand: #c4a882;
+  --sand-light: #e8d5b7;
+  --red: #c0392b;
+  --blue: #4a90d9;
+  --green: #27ae60;
+  --teal: #16a085;
+  --orange: #e67e22;
+  --dkgreen: #2d6a4f;
+  --text: #e8d5b7;
+  --text-dim: #8a7a66;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Lora', serif;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Decorative background */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 20% 50%, rgba(107,63,160,0.08) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 20%, rgba(212,168,67,0.06) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 80%, rgba(230,126,34,0.04) 0%, transparent 50%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+header {
+  text-align: center;
+  padding: 2rem 1rem 1rem;
+  position: relative;
+  z-index: 1;
+}
+
+header h1 {
+  font-family: 'Cinzel Decorative', serif;
+  font-size: 2.5rem;
+  background: linear-gradient(135deg, var(--gold-light), var(--gold), var(--gold-dim));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-shadow: none;
+  filter: drop-shadow(0 0 20px rgba(212,168,67,0.3));
+}
+
+header p {
+  font-family: 'Cinzel', serif;
+  color: var(--text-dim);
+  margin-top: 0.3rem;
+  font-size: 0.9rem;
+  letter-spacing: 3px;
+}
+
+/* Tabs */
+.tabs {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 1rem;
+  position: relative;
+  z-index: 1;
+  flex-wrap: wrap;
+}
+
+.tab-btn {
+  font-family: 'Cinzel', serif;
+  background: var(--bg2);
+  color: var(--text-dim);
+  border: 1px solid rgba(212,168,67,0.2);
+  padding: 0.7rem 1.5rem;
+  cursor: pointer;
+  border-radius: 4px;
+  font-size: 0.95rem;
+  transition: all 0.3s;
+}
+
+.tab-btn:hover { border-color: var(--gold); color: var(--gold); }
+.tab-btn.active {
+  background: linear-gradient(135deg, rgba(212,168,67,0.15), rgba(107,63,160,0.1));
+  border-color: var(--gold);
+  color: var(--gold-light);
+  box-shadow: 0 0 15px rgba(212,168,67,0.15);
+}
+
+.tab-content { display:none; position:relative; z-index:1; }
+.tab-content.active { display:block; }
+
+/* ===== TAB 1: Relationship Map ===== */
+#tab-map { width:100%; height: calc(100vh - 200px); min-height:500px; position:relative; }
+#graph-svg { width:100%; height:100%; }
+.node-label { font-family:'Cinzel',serif; font-size:10px; fill:var(--text); pointer-events:none; text-anchor:middle; }
+#node-info {
+  position:absolute; top:1rem; right:1rem; width:280px;
+  background: rgba(26,20,37,0.95); border:1px solid var(--gold-dim);
+  border-radius:8px; padding:1.2rem; display:none;
+  backdrop-filter: blur(10px);
+}
+#node-info h3 { font-family:'Cinzel',serif; color:var(--gold-light); margin-bottom:0.5rem; }
+#node-info .ni-group { font-size:0.8rem; color:var(--purple-light); margin-bottom:0.3rem; }
+#node-info .ni-role { font-size:0.85rem; color:var(--sand); margin-bottom:0.3rem; }
+#node-info .ni-status { font-size:0.8rem; margin-bottom:0.5rem; }
+#node-info .ni-notes { font-size:0.8rem; color:var(--text-dim); line-height:1.4; }
+.legend {
+  position:absolute; bottom:1rem; left:1rem;
+  background:rgba(26,20,37,0.9); border:1px solid rgba(212,168,67,0.2);
+  border-radius:8px; padding:0.8rem; font-size:0.75rem;
+}
+.legend-item { display:flex; align-items:center; gap:0.4rem; margin:0.2rem 0; }
+.legend-dot { width:10px; height:10px; border-radius:50%; }
+
+/* ===== TAB 2: Key Tracker ===== */
+#tab-keys { padding: 1rem 2rem 3rem; max-width:1100px; margin:0 auto; }
+
+.progress-section { margin-bottom:2rem; }
+.progress-bar-bg {
+  height:30px; background:var(--bg3); border-radius:15px; overflow:hidden;
+  border:1px solid rgba(212,168,67,0.2); display:flex;
+}
+.progress-seg { height:100%; transition:width 0.5s; display:flex; align-items:center; justify-content:center; font-size:0.7rem; font-family:'Cinzel',serif; color:#fff; }
+.progress-label { display:flex; justify-content:space-between; margin-top:0.4rem; font-size:0.75rem; color:var(--text-dim); }
+
+.keys-grid {
+  display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr));
+  gap:1.5rem; margin-bottom:2.5rem;
+}
+
+.key-card {
+  background: linear-gradient(135deg, var(--bg2), var(--bg3));
+  border:1px solid rgba(212,168,67,0.2);
+  border-radius:12px; padding:1.5rem; position:relative; overflow:hidden;
+  transition: transform 0.3s, box-shadow 0.3s;
+}
+.key-card:hover { transform:translateY(-3px); box-shadow:0 8px 25px rgba(0,0,0,0.4); }
+.key-card::before {
+  content:''; position:absolute; top:0; left:0; right:0; height:3px;
+}
+.key-card.found::before { background:linear-gradient(90deg,#27ae60,#2ecc71); }
+.key-card.located::before { background:linear-gradient(90deg,var(--blue),#5dade2); }
+.key-card.clue::before { background:linear-gradient(90deg,var(--gold),var(--gold-light)); }
+.key-card.unknown::before { background:linear-gradient(90deg,#555,#777); }
+
+.key-card.found { border-color:rgba(39,174,96,0.4); }
+.key-card.located { border-color:rgba(74,144,217,0.4); }
+.key-card.clue { border-color:rgba(212,168,67,0.4); }
+
+.key-icon { font-size:2.5rem; margin-bottom:0.5rem; }
+.key-name { font-family:'Cinzel',serif; font-size:1.1rem; color:var(--gold-light); margin-bottom:0.3rem; }
+.key-status {
+  display:inline-block; padding:0.2rem 0.6rem; border-radius:12px;
+  font-size:0.75rem; font-family:'Cinzel',serif; margin-bottom:0.7rem;
+}
+.key-status.found { background:rgba(39,174,96,0.2); color:#2ecc71; }
+.key-status.located { background:rgba(74,144,217,0.2); color:#5dade2; }
+.key-status.clue { background:rgba(212,168,67,0.2); color:var(--gold-light); }
+.key-status.unknown { background:rgba(100,100,100,0.2); color:#999; }
+.key-desc { font-size:0.85rem; color:var(--text-dim); line-height:1.5; }
+
+/* Glow animation for found keys */
+.key-card.found { animation: glowPulse 3s ease-in-out infinite; }
+@keyframes glowPulse {
+  0%,100% { box-shadow:0 0 5px rgba(39,174,96,0.1); }
+  50% { box-shadow:0 0 20px rgba(39,174,96,0.25); }
+}
+
+.artifacts-section h2 {
+  font-family:'Cinzel Decorative',serif; color:var(--gold);
+  margin-bottom:1rem; font-size:1.3rem;
+  border-bottom:1px solid rgba(212,168,67,0.2); padding-bottom:0.5rem;
+}
+
+.artifacts-grid {
+  display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); gap:1rem;
+}
+
+.artifact-card {
+  background:var(--bg2); border:1px solid rgba(155,111,208,0.2);
+  border-radius:8px; padding:1rem; font-size:0.85rem;
+  transition:border-color 0.3s;
+}
+.artifact-card:hover { border-color:var(--purple-light); }
+.artifact-card .af-name { font-family:'Cinzel',serif; color:var(--purple-light); margin-bottom:0.3rem; }
+.artifact-card .af-desc { color:var(--text-dim); line-height:1.4; }
+
+/* ===== TAB 3: Timeline ===== */
+#tab-timeline { padding:1rem 2rem 3rem; max-width:800px; margin:0 auto; }
+
+.timeline {
+  position:relative; padding-left:40px;
+}
+.timeline::before {
+  content:''; position:absolute; left:18px; top:0; bottom:0;
+  width:2px; background:linear-gradient(180deg,var(--gold),var(--purple),var(--gold-dim));
+}
+
+.tl-entry {
+  position:relative; margin-bottom:2rem;
+  padding:1.2rem 1.5rem; background:var(--bg2);
+  border-radius:8px; border:1px solid rgba(212,168,67,0.15);
+  transition: transform 0.3s, border-color 0.3s;
+}
+.tl-entry:hover { transform:translateX(5px); border-color:var(--gold); }
+
+.tl-entry::before {
+  content:''; position:absolute; left:-30px; top:1.3rem;
+  width:12px; height:12px; border-radius:50%;
+  border:2px solid var(--gold); background:var(--bg);
+}
+
+.tl-entry.color-gold { border-left:3px solid var(--gold); }
+.tl-entry.color-gold::before { border-color:var(--gold); background:var(--gold); }
+.tl-entry.color-red { border-left:3px solid var(--red); }
+.tl-entry.color-red::before { border-color:var(--red); background:var(--red); }
+.tl-entry.color-blue { border-left:3px solid var(--blue); }
+.tl-entry.color-blue::before { border-color:var(--blue); background:var(--blue); }
+.tl-entry.color-green { border-left:3px solid var(--green); }
+.tl-entry.color-green::before { border-color:var(--green); background:var(--green); }
+.tl-entry.color-purple { border-left:3px solid var(--purple-light); }
+.tl-entry.color-purple::before { border-color:var(--purple-light); background:var(--purple-light); }
+
+.tl-session { font-family:'Cinzel',serif; font-size:0.75rem; color:var(--gold-dim); margin-bottom:0.2rem; }
+.tl-title { font-family:'Cinzel',serif; font-size:1.05rem; color:var(--gold-light); margin-bottom:0.3rem; }
+.tl-desc { font-size:0.85rem; color:var(--text-dim); line-height:1.4; }
+.tl-highlight { color:var(--gold); font-weight:600; }
+
+/* Scrollbar */
+::-webkit-scrollbar { width:8px; }
+::-webkit-scrollbar-track { background:var(--bg); }
+::-webkit-scrollbar-thumb { background:var(--gold-dim); border-radius:4px; }
+
+/* Responsive */
+@media(max-width:600px) {
+  header h1 { font-size:1.6rem; }
+  .tab-btn { padding:0.5rem 0.8rem; font-size:0.8rem; }
+  #tab-keys { padding:1rem; }
+  .keys-grid { grid-template-columns:1fr; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>✦ Sahrazar ✦</h1>
+  <p>KAMPAGNEVÆRKTØJER</p>
+</header>
+
+<nav class="tabs">
+  <button class="tab-btn active" onclick="switchTab('map')">🕸️ Relationskort</button>
+  <button class="tab-btn" onclick="switchTab('keys')">💎 Nøgle Tracker</button>
+  <button class="tab-btn" onclick="switchTab('timeline')">📅 Tidslinje</button>
+</nav>
+
+<!-- TAB 1: Relationship Map -->
+<div id="tab-map" class="tab-content active">
+  <svg id="graph-svg"></svg>
+  <div id="node-info">
+    <h3 id="ni-name"></h3>
+    <div class="ni-group" id="ni-group"></div>
+    <div class="ni-role" id="ni-role"></div>
+    <div class="ni-status" id="ni-status"></div>
+    <div class="ni-notes" id="ni-notes"></div>
+  </div>
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot" style="background:#d4a843"></div> Gruppen</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#4a90d9"></div> Hjertets Vogtere</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#27ae60"></div> Barzel Gilboa</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#16a085"></div> Vorax Akademiet</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#c0392b"></div> Modstandere</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#9b6fd0"></div> Magtfulde</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#e67e22"></div> Rimal Sihr</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#2d6a4f"></div> Bannwalt</div>
+    <div class="legend-item"><div class="legend-dot" style="border:2px dashed #888;width:8px;height:8px;background:transparent;border-radius:50%"></div> Død</div>
+  </div>
+</div>
+
+<!-- TAB 2: Key Tracker -->
+<div id="tab-keys" class="tab-content">
+  <h2 style="font-family:'Cinzel Decorative',serif;text-align:center;color:var(--gold-light);margin-bottom:0.3rem;font-size:1.8rem;">De Syv Nøgler</h2>
+  <p style="text-align:center;color:var(--text-dim);margin-bottom:1.5rem;font-style:italic;">"Syv nøgler åbner vejen til Sahrazars hjerte..."</p>
+
+  <div class="progress-section">
+    <div class="progress-bar-bg">
+      <div class="progress-seg" style="width:14.28%;background:#27ae60;">1 Fundet</div>
+      <div class="progress-seg" style="width:14.28%;background:#4a90d9;">1 Lokal.</div>
+      <div class="progress-seg" style="width:42.86%;background:var(--gold-dim);">3 Ledetråd</div>
+      <div class="progress-seg" style="width:28.57%;background:#555;">2 Ukendt</div>
+    </div>
+  </div>
+
+  <div class="keys-grid" id="keys-grid"></div>
+
+  <div class="artifacts-section">
+    <h2>🏺 Relaterede Artefakter</h2>
+    <div class="artifacts-grid" id="artifacts-grid"></div>
+  </div>
+</div>
+
+<!-- TAB 3: Timeline -->
+<div id="tab-timeline" class="tab-content">
+  <h2 style="font-family:'Cinzel Decorative',serif;text-align:center;color:var(--gold-light);margin-bottom:0.3rem;font-size:1.8rem;">Kampagnens Tidslinje</h2>
+  <p style="text-align:center;color:var(--text-dim);margin-bottom:2rem;font-style:italic;">Fra festivalens begyndelse til nutidens mørke...</p>
+  <div class="timeline" id="timeline"></div>
+</div>
+
+<script>
+// ===== TAB SWITCHING =====
+function switchTab(id) {
+  document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('tab-'+id).classList.add('active');
+  document.querySelectorAll('.tab-btn').forEach(b=>{
+    if((id==='map'&&b.textContent.includes('Relations'))||(id==='keys'&&b.textContent.includes('Nøgle'))||(id==='timeline'&&b.textContent.includes('Tids')))
+      b.classList.add('active');
+  });
+  if(id==='map' && !window._graphInit) initGraph();
+}
+
+// ===== TAB 1: GRAPH DATA =====
+const colors = {gruppen:'#d4a843',hjertets:'#4a90d9',barzel:'#27ae60',vorax:'#16a085',modstandere:'#c0392b',magtfulde:'#9b6fd0',rimal:'#e67e22',bannwalt:'#2d6a4f'};
+
+const nodes = [
+  {id:'tariq',name:'Tariq',group:'gruppen',role:'Bard',dead:false,notes:'Spillerkarakter. Bærer Sharazaads instrument og Myrkiels Hjerte.'},
+  {id:'lars',name:'Lars / Drondheim',group:'gruppen',role:'Fri Fakler',dead:false,notes:'Spillerkarakter. Forbindelse til De Frie Fakler.'},
+  {id:'dudda',name:'Dudda',group:'gruppen',role:'Naturmystiker',dead:false,notes:'Spillerkarakter. Helbredt af Umala. Brændemærke fra Zulms Øje.'},
+  {id:'azaad',name:'Azaad',group:'gruppen',role:'Kriger',dead:false,notes:'Spillerkarakter. Brændemærke fra Zulms Øje.'},
+  {id:'zayid',name:'Zayid',group:'hjertets',role:'Vogter',dead:false,notes:'Medlem af Hjertets Vogtere.'},
+  {id:'aslak',name:'Aslak',group:'hjertets',role:'Vogter',dead:false,notes:'Medlem af Hjertets Vogtere.'},
+  {id:'iskrit',name:'Iskrit Flammeværer',group:'hjertets',role:'Vogter',dead:false,notes:'Flammemagiker.'},
+  {id:'mira',name:'Mira Gideon',group:'hjertets',role:'Vogter',dead:false,notes:'Forbindelse til Gideon i Barzel Gilboa.'},
+  {id:'ibrahim',name:'Ibrahim Kalib',group:'hjertets',role:'Vogter',dead:false,notes:'Medlem af Hjertets Vogtere.'},
+  {id:'alladin',name:'Alladin',group:'hjertets',role:'Vogter',dead:false,notes:'Medlem af Hjertets Vogtere.'},
+  {id:'sharazaad',name:'Sharazaad',group:'hjertets',role:'Vogter (afdød)',dead:true,notes:'Død. Hendes instrument er nu hos Tariq. Hendes sjæl er i en sort ring.'},
+  {id:'faisal',name:'Faisal Al-Raqib',group:'hjertets',role:'Vogter (afdød)',dead:true,notes:'Død. Var Tariqs læremester.'},
+  {id:'thomassen',name:'Thomassen',group:'barzel',role:'Borger',dead:false,notes:'I Barzel Gilboa.'},
+  {id:'gideon',name:'Gideon',group:'barzel',role:'Garnison',dead:false,notes:'Garnisonsleder.'},
+  {id:'lilleallan',name:'Lille Allan',group:'barzel',role:'Borger',dead:false,notes:'I Barzel Gilboa.'},
+  {id:'balinor',name:'Balinor Guldskæg',group:'barzel',role:'Borger',dead:false,notes:'I Barzel Gilboa.'},
+  {id:'vesemir',name:'Vesemir Schwartz',group:'barzel',role:'Borger',dead:false,notes:'Forbundet med Den Sorte Råd.'},
+  {id:'frost',name:'Frøken Frost',group:'barzel',role:'Borger',dead:false,notes:'I Barzel Gilboa.'},
+  {id:'durin',name:'Durin',group:'barzel',role:'Borger',dead:false,notes:'I Barzel Gilboa.'},
+  {id:'adam',name:'Adam',group:'barzel',role:'Borger',dead:false,notes:'Konflikt med Tariq.'},
+  {id:'sylvia',name:'Sylvia',group:'vorax',role:'Akademiker',dead:false,notes:'Tilknyttet Vorax Akademiet og Barzel Gilboa.'},
+  {id:'ursula',name:'Ursula',group:'vorax',role:'Akademiker',dead:false,notes:'Tilknyttet Vorax Akademiet og Barzel Gilboa.'},
+  {id:'dimitri',name:'Dimitri',group:'barzel',role:'Borger',dead:false,notes:'I Barzel Gilboa.'},
+  {id:'roald',name:'Roald',group:'vorax',role:'Akademiker',dead:false,notes:'Vorax Akademiet.'},
+  {id:'silas',name:'Silas',group:'vorax',role:'Akademiker',dead:false,notes:'Vorax Akademiet.'},
+  {id:'bertil',name:'Bertil',group:'vorax',role:'Akademiker',dead:false,notes:'Vorax Akademiet.'},
+  {id:'sorterad',name:'Den Sorte Råd',group:'modstandere',role:'Fjendtlig Fraktion',dead:false,notes:'Mystisk ondsindet råd. Forbundet med Vesemir Schwartz.'},
+  {id:'mosekongen',name:'Mosekongen',group:'modstandere',role:'Modstander',dead:false,notes:'Farlig skabning.'},
+  {id:'dronningen',name:'Dronningen',group:'modstandere',role:'Modstander',dead:false,notes:'Magtfuld fjende.'},
+  {id:'aspis',name:'Aspis',group:'modstandere',role:'Modstander',dead:false,notes:'Fjendtlig aktør.'},
+  {id:'fyrste',name:'Ærede Fyrste',group:'modstandere',role:'Modstander',dead:false,notes:'Fjendtlig leder.'},
+  {id:'alawham',name:'Al-Awham',group:'modstandere',role:'Modstander',dead:false,notes:'Fjendtlig aktør.'},
+  {id:'sulemon',name:'Sulemon den Gyldne',group:'magtfulde',role:'Sultan',dead:false,notes:'Besidder Ishras Perle i Ramielabad.'},
+  {id:'salsabil',name:'Salsabil',group:'magtfulde',role:'Magtfuld',dead:false,notes:'Mystisk magtfuld figur.'},
+  {id:'alzayid',name:'Al-Zayid',group:'magtfulde',role:'Magtfuld',dead:false,notes:'Indflydelsesrig person.'},
+  {id:'suleymon',name:'Suleymon (Solens Stemmer)',group:'magtfulde',role:'Solens Stemmer',dead:false,notes:'Religiøs leder.'},
+  {id:'iqbal',name:'Iqbal Hussein',group:'rimal',role:'Borger i Rimal Sihr',dead:false,notes:'Lokal i Rimal Sihr.'},
+  {id:'josef',name:'Josef Hussein',group:'rimal',role:'Borger i Rimal Sihr',dead:false,notes:'Lokal i Rimal Sihr.'},
+  {id:'aziz',name:'Aziz Al-Hakim',group:'rimal',role:'Borger i Rimal Sihr',dead:false,notes:'Lokal i Rimal Sihr.'},
+  {id:'barbara',name:'Barbara "Bedstemor"',group:'rimal',role:'Borger i Rimal Sihr',dead:false,notes:'Ældre kvinde, kaldet Bedstemor.'},
+  {id:'yasmeen',name:'Yasmeen',group:'rimal',role:'Borger i Rimal Sihr',dead:false,notes:'Lokal i Rimal Sihr.'},
+  {id:'ayron',name:'Ayron Al-Asra',group:'rimal',role:'Borger i Rimal Sihr',dead:false,notes:'Lokal i Rimal Sihr.'},
+  {id:'rahim',name:'Sorte Rahim',group:'bannwalt',role:'Spion / Allieret',dead:false,notes:'Allieret med gruppen. Spion i netværket. Reddede gruppen i skoven.'},
+  {id:'umala',name:'Umala',group:'bannwalt',role:'Healer',dead:false,notes:'Helbredte Dudda.'},
+  {id:'whiskeyjack',name:'Whiskey Jack',group:'bannwalt',role:'Skovfolk',dead:false,notes:'Beboer i Bannwalt.'},
+  {id:'volja',name:'Volja',group:'bannwalt',role:'Skovfolk',dead:false,notes:'Beboer i Bannwalt.'},
+  {id:'azkalion',name:'Azkalion',group:'bannwalt',role:'Skovfolk (afdød)',dead:true,notes:'Faldt i Tårnet Dun\'Mor.'},
+  {id:'myrkiel',name:'Myrkiel',group:'magtfulde',role:'Mystisk Entitet',dead:false,notes:'Tariq har indgået en pagt med Myrkiel. Bærer Myrkiels Hjerte.'},
+  {id:'fiztandil',name:'Fiztandil',group:'hjertets',role:'Historiker',dead:false,notes:'Forfatter af kvadet med koder til nøglerne. Sendte breve til Hugin Tor druider.'},
+];
+
+const links = [
+  // Gruppen internal
+  {source:'tariq',target:'lars',label:'gruppe'},
+  {source:'tariq',target:'dudda',label:'gruppe'},
+  {source:'tariq',target:'azaad',label:'gruppe'},
+  {source:'lars',target:'dudda',label:'gruppe'},
+  {source:'lars',target:'azaad',label:'gruppe'},
+  {source:'dudda',target:'azaad',label:'gruppe'},
+  // Tariq special
+  {source:'tariq',target:'sharazaad',label:'arv: instrument'},
+  {source:'tariq',target:'faisal',label:'læremester'},
+  {source:'tariq',target:'myrkiel',label:'pagt'},
+  {source:'tariq',target:'adam',label:'konflikt'},
+  // Hjertets Vogtere interconnected (select links)
+  {source:'zayid',target:'aslak',label:'vogtere'},
+  {source:'zayid',target:'iskrit',label:'vogtere'},
+  {source:'zayid',target:'mira',label:'vogtere'},
+  {source:'zayid',target:'ibrahim',label:'vogtere'},
+  {source:'zayid',target:'alladin',label:'vogtere'},
+  {source:'aslak',target:'iskrit',label:'vogtere'},
+  {source:'mira',target:'ibrahim',label:'vogtere'},
+  {source:'alladin',target:'sharazaad',label:'vogtere'},
+  {source:'faisal',target:'zayid',label:'vogtere'},
+  {source:'fiztandil',target:'zayid',label:'vogtere'},
+  {source:'sharazaad',target:'faisal',label:'vogtere'},
+  // Rahim
+  {source:'rahim',target:'tariq',label:'allieret'},
+  {source:'rahim',target:'lars',label:'allieret'},
+  {source:'rahim',target:'dudda',label:'allieret'},
+  {source:'rahim',target:'azaad',label:'allieret'},
+  // Sulemon
+  {source:'sulemon',target:'salsabil',label:'forbundet'},
+  // Vesemir
+  {source:'vesemir',target:'sorterad',label:'forbundet'},
+  // Umala
+  {source:'umala',target:'dudda',label:'helbredte'},
+  // Mira-Gideon
+  {source:'mira',target:'gideon',label:'familie?'},
+];
+
+function initGraph(){
+  window._graphInit=true;
+  const container = document.getElementById('tab-map');
+  const svg = d3.select('#graph-svg');
+  const w = container.clientWidth, h = container.clientHeight;
+  svg.attr('viewBox',`0 0 ${w} ${h}`);
+
+  const sim = d3.forceSimulation(nodes)
+    .force('link', d3.forceLink(links).id(d=>d.id).distance(80))
+    .force('charge', d3.forceManyBody().strength(-200))
+    .force('center', d3.forceCenter(w/2, h/2))
+    .force('collision', d3.forceCollide(30));
+
+  const link = svg.append('g').selectAll('line').data(links).join('line')
+    .attr('stroke','rgba(212,168,67,0.15)').attr('stroke-width',1);
+
+  const nodeG = svg.append('g').selectAll('g').data(nodes).join('g')
+    .call(d3.drag().on('start',(e,d)=>{if(!e.active)sim.alphaTarget(0.3).restart();d.fx=d.x;d.fy=d.y;})
+      .on('drag',(e,d)=>{d.fx=e.x;d.fy=e.y;})
+      .on('end',(e,d)=>{if(!e.active)sim.alphaTarget(0);d.fx=null;d.fy=null;}));
+
+  nodeG.append('circle').attr('r',d=>d.group==='gruppen'?14:10)
+    .attr('fill',d=>colors[d.group]||'#888')
+    .attr('stroke',d=>d.dead?'#888':'rgba(255,255,255,0.2)')
+    .attr('stroke-width',d=>d.dead?2:1)
+    .attr('stroke-dasharray',d=>d.dead?'4,3':'none')
+    .style('cursor','pointer')
+    .attr('opacity',d=>d.dead?0.6:1);
+
+  nodeG.append('text').attr('class','node-label').attr('dy',22).text(d=>d.name);
+
+  nodeG.on('click',(e,d)=>{
+    const info=document.getElementById('node-info');
+    info.style.display='block';
+    document.getElementById('ni-name').textContent=d.name;
+    document.getElementById('ni-group').textContent=d.group.charAt(0).toUpperCase()+d.group.slice(1);
+    document.getElementById('ni-role').textContent=d.role;
+    document.getElementById('ni-status').innerHTML=d.dead?'<span style="color:#c0392b">💀 Død</span>':'<span style="color:#2ecc71">● I live</span>';
+    document.getElementById('ni-notes').textContent=d.notes;
+  });
+
+  sim.on('tick',()=>{
+    link.attr('x1',d=>d.source.x).attr('y1',d=>d.source.y).attr('x2',d=>d.target.x).attr('y2',d=>d.target.y);
+    nodeG.attr('transform',d=>`translate(${d.x},${d.y})`);
+  });
+}
+
+// Init graph on load since it's the default tab
+setTimeout(initGraph, 100);
+
+// ===== TAB 2: KEYS =====
+const keys = [
+  {name:'Zulms Øje',icon:'👁️',status:'FUNDET',cls:'found',statusIcon:'✅',desc:'Krystalblå sten med rødligt center. Fundet i templet med ben-døren. Efterlod brændemærker på Tariq (bryst), Dudda (venstre hånd) og Azaad (nakke).'},
+  {name:'Ishras Perle',icon:'💫',status:'LOKALISERET',cls:'located',statusIcon:'📍',desc:'Hos Sultan Sulemon den Gyldne i Ramielabad.'},
+  {name:'Sharazaads Instrument',icon:'🎵',status:'LEDETRÅD',cls:'clue',statusIcon:'🔍',desc:'Mulig nøgle. Forbindelse til Fiztandils kvad og Dar al-Mezaan. Instrumentet er nu hos Tariq.'},
+  {name:'Samaas Nøgle',icon:'🌿',status:'LEDETRÅD',cls:'clue',statusIcon:'🔍',desc:'Kan findes med Samaas Vejviser (grenen fra Duddas oase). Givet af Rahim.'},
+  {name:'Fiztandils Kvad',icon:'📜',status:'LEDETRÅD',cls:'clue',statusIcon:'🔍',desc:'Indeholder koder til nøglernes placering. Breve fundet i hans taske.'},
+  {name:'Ukendt Nøgle #1',icon:'❓',status:'UKENDT',cls:'unknown',statusIcon:'',desc:'Endnu ikke opdaget.'},
+  {name:'Ukendt Nøgle #2',icon:'❓',status:'UKENDT',cls:'unknown',statusIcon:'',desc:'Endnu ikke opdaget.'},
+];
+
+const grid = document.getElementById('keys-grid');
+keys.forEach(k=>{
+  grid.innerHTML += `<div class="key-card ${k.cls}">
+    <div class="key-icon">${k.icon}</div>
+    <div class="key-name">${k.name}</div>
+    <span class="key-status ${k.cls}">${k.statusIcon} ${k.status}</span>
+    <div class="key-desc">${k.desc}</div>
+  </div>`;
+});
+
+const artifacts = [
+  {name:'💍 Sharazaads Ring',desc:'Sort ring med hendes sjæl fanget inden i.'},
+  {name:'🖤 Myrkiels Hjerte',desc:'Båret af Tariq. Forbinder ham til Myrkiel.'},
+  {name:'💠 Teleportationsring',desc:'Æterkvartz med Glesserburgs ravnesymbol.'},
+  {name:'⚔️ Kong Hara\'kirs Sværd',desc:'Knækket i tre dele. Legendarisk våben.'},
+  {name:'🪶 Den Sorte Fjer',desc:'I balance med Zulms Øje.'},
+  {name:'🌿 Samaas Vejviser',desc:'Viser vej til Samaas Nøgle.'},
+];
+
+const ag = document.getElementById('artifacts-grid');
+artifacts.forEach(a=>{
+  ag.innerHTML += `<div class="artifact-card"><div class="af-name">${a.name}</div><div class="af-desc">${a.desc}</div></div>`;
+});
+
+// ===== TAB 3: TIMELINE =====
+const sessions = [
+  {num:'1',title:'Mawsim al-Kubra Festival',desc:'Festivalen hvor det hele startede.',color:'green'},
+  {num:'1.5',title:'Tariqs Præstation',desc:'Tariqs legendariske optræden ved festivalen.',color:'purple'},
+  {num:'2',title:'Hjertets Vogtere og Davani-familien',desc:'Møder Hjertets Vogtere for første gang.',color:'blue'},
+  {num:'3',title:'Templet og Ben-døren',desc:'Finder det mystiske tempel i ørkenen.',color:'green'},
+  {num:'4',title:'Templets Dybder',desc:'Udforsker templets farlige dybder.',color:'green'},
+  {num:'5',title:'Zulms Øje & Elverne',desc:'<span class="tl-highlight">🔑 NØGLE FUNDET: Zulms Øje!</span> Vækker de sovende elvere.',color:'gold'},
+  {num:'6',title:'Ankomst til Rimal Sihr',desc:'Ny by, nye mysterier. Gruppen ankommer til Rimal Sihr.',color:'green'},
+  {num:'7',title:'Efterforskning i Rimal Sihr',desc:'Graver i byens hemmeligheder og mørke fortid.',color:'green'},
+  {num:'8',title:'Forberedelser og Mørke Ritualer',desc:'Ahrim-magi afsløret. Mørke kræfter er på spil.',color:'purple'},
+  {num:'9',title:'Kampen mod Al-Ahwan',desc:'Kamp mod ørkenbanditterne. Blodigt opgør.',color:'red'},
+  {num:'10',title:'Hemmeligheder på Det Salte Øl',desc:'Afsløringer over drinks i tavernen.',color:'blue'},
+  {num:'11',title:'Kustodernes Møde',desc:'Officielt møde med Vogternes råd.',color:'blue'},
+  {num:'12',title:'Rådslagning og Regndans',desc:'Fest og vigtige beslutninger tages.',color:'blue'},
+  {num:'13',title:'Den Gamle Elviske By',desc:'Opdager elviske ruiner fra en svunden tid.',color:'green'},
+  {num:'14',title:'Goblinernes Tunnel',desc:'Ind i goblin-territorium under jorden.',color:'green'},
+  {num:'15',title:'Bagganoth og Akka',desc:'Goblin-konfrontation i dybderne.',color:'red'},
+  {num:'16',title:'Fort Rizon og De Frie Fakler',desc:'Møder Lars\' fraktion, De Frie Fakler.',color:'blue'},
+  {num:'17',title:'Tronsalens Rædsel',desc:'Gru og rædsel i fortets tronsal.',color:'red'},
+  {num:'17.5',title:'Dramatisk Flugtscene',desc:'Flugt fra Fort Rizon. Livet hænger i en tråd.',color:'red'},
+  {num:'18',title:'Mørke Minder og Helbredende Hænder',desc:'Healing og flashbacks. Gruppen slikker sår.',color:'purple'},
+  {num:'19',title:'Fra Byport til Bannwalt',desc:'Tariq vandrer mod den mørke skov.',color:'green'},
+  {num:'20',title:'Bannwalt Skoven',desc:'Ind i den inficerede, fordærvede skov.',color:'red'},
+  {num:'21',title:'Videre ind i Bannwalt',desc:'Dybere ind. Møder frøfolket.',color:'green'},
+  {num:'22',title:'Azkalions Sidste Time',desc:'Tårnet Dun\'Mor. Azkalion falder. 💀',color:'red'},
+  {num:'22.5',title:'RPG via Discord',desc:'Sideeventyr mellem sessionerne.',color:'purple'},
+  {num:'23',title:'På Jagt efter Nøglerne',desc:'<span class="tl-highlight">🔑 Jagten efter De Syv Nøgler intensiveres.</span>',color:'gold'},
+  {num:'24',title:'Opvågning i Barzel Gilboa',desc:'Ankomst til den nye by Barzel Gilboa.',color:'green'},
+  {num:'25',title:'Infektionens Spor i Glesserburg',desc:'Svøben spreder sig. Sygdommen er overalt.',color:'red'},
+  {num:'26',title:'Vorax Akademiet og Myrkiels Hjerte',desc:'<span class="tl-highlight">Tariq binder sig til Myrkiel.</span> En farlig pagt.',color:'purple'},
+  {num:'27',title:'Ind i Afdeling Q',desc:'Infiltrationen af det hemmelige arkiv begynder.',color:'red'},
+  {num:'28',title:'Infiltration af Afdeling Q',desc:'Dybere ind i hemmeligheder og forbudt viden.',color:'red'},
+  {num:'29',title:'Flugt gennem Bannwalt Skoven',desc:'Dramatisk flugt. <span class="tl-highlight">Rahim redder gruppen!</span>',color:'green'},
+  {num:'30',title:'Visioner, Valg og Efterlysninger',desc:'Konsekvenser og nye spor dukker op.',color:'purple'},
+  {num:'31',title:'Forklædninger, Festplaner og Kontaminering',desc:'<span class="tl-highlight">Operation Djinn & Tonic planlagt.</span>',color:'gold'},
+];
+
+const tl = document.getElementById('timeline');
+sessions.forEach(s=>{
+  tl.innerHTML += `<div class="tl-entry color-${s.color}">
+    <div class="tl-session">Session ${s.num}</div>
+    <div class="tl-title">${s.title}</div>
+    <div class="tl-desc">${s.desc}</div>
+  </div>`;
+});
+</script>
+</body>
+</html>
