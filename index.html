@@ -442,16 +442,29 @@ function initGraph(){
   const w = container.clientWidth, h = container.clientHeight;
   svg.attr('viewBox',`0 0 ${w} ${h}`);
 
+  // Zoom & pan container
+  const g = svg.append('g');
+  const zoom = d3.zoom()
+    .scaleExtent([0.2, 5])
+    .on('zoom', (e) => g.attr('transform', e.transform));
+  svg.call(zoom);
+
   const sim = d3.forceSimulation(nodes)
-    .force('link', d3.forceLink(links).id(d=>d.id).distance(80))
-    .force('charge', d3.forceManyBody().strength(-200))
+    .force('link', d3.forceLink(links).id(d=>d.id).distance(120))
+    .force('charge', d3.forceManyBody().strength(-350))
     .force('center', d3.forceCenter(w/2, h/2))
-    .force('collision', d3.forceCollide(30));
+    .force('collision', d3.forceCollide(40));
 
-  const link = svg.append('g').selectAll('line').data(links).join('line')
-    .attr('stroke','rgba(212,168,67,0.15)').attr('stroke-width',1);
+  const link = g.append('g').selectAll('line').data(links).join('line')
+    .attr('stroke','rgba(212,168,67,0.2)').attr('stroke-width',1.5);
 
-  const nodeG = svg.append('g').selectAll('g').data(nodes).join('g')
+  // Link labels on hover
+  const linkLabel = g.append('g').selectAll('text').data(links).join('text')
+    .attr('font-size','8px').attr('fill','rgba(212,168,67,0.5)')
+    .attr('text-anchor','middle').attr('pointer-events','none')
+    .text(d=>d.label||'');
+
+  const nodeG = g.append('g').selectAll('g').data(nodes).join('g')
     .call(d3.drag().on('start',(e,d)=>{if(!e.active)sim.alphaTarget(0.3).restart();d.fx=d.x;d.fy=d.y;})
       .on('drag',(e,d)=>{d.fx=e.x;d.fy=e.y;})
       .on('end',(e,d)=>{if(!e.active)sim.alphaTarget(0);d.fx=null;d.fy=null;}));
@@ -478,8 +491,12 @@ function initGraph(){
 
   sim.on('tick',()=>{
     link.attr('x1',d=>d.source.x).attr('y1',d=>d.source.y).attr('x2',d=>d.target.x).attr('y2',d=>d.target.y);
+    linkLabel.attr('x',d=>(d.source.x+d.target.x)/2).attr('y',d=>(d.source.y+d.target.y)/2);
     nodeG.attr('transform',d=>`translate(${d.x},${d.y})`);
   });
+
+  // Initial zoom to fit
+  setTimeout(()=>{ svg.call(zoom.transform, d3.zoomIdentity.translate(0,0).scale(0.85)); }, 1000);
 }
 
 // Init graph on load since it's the default tab
